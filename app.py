@@ -12,7 +12,7 @@ from email.mime.image import MIMEImage
 st.set_page_config(page_title="Hệ thống Yêu cầu Bảo trì v2.0", layout="wide")
 
 # Link sau khi bạn Deploy lên Streamlit Cloud (Cần cập nhật sau khi có link chính thức)
-WEB_URL = "https://your-app-url.streamlit.app" 
+WEB_URL = "https://rynbi2003-abc-request-app-app-iimreh.streamlit.app/" 
 
 # Cấu hình Email gửi đi (Office 365 / Outlook công ty)
 SMTP_SERVER = "smtp-mail.outlook.com"
