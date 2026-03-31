@@ -26,11 +26,11 @@ MAINTENANCE_EMAIL = "Mary.Nguyen@esquel.com"
 
 # Cấu hình Database (Lấy từ Supabase -> Project Settings -> Database)
 DB_CONFIG = {
-    "host": "db.fucrufqdvsmkdevaguqy.supabase.co",
+    "host": "aws-1-ap-south-1.pooler.supabase.com",
     "database": "postgres",
-    "user": "postgres",
+    "user": "postgres.fucrufqdvsmkdevaguqy",
     "password": "y8JktKAHgnI5ycmf",
-    "port": "5432"
+    "port": "6543"
 }
 
 # --- 2. DANH SÁCH MẬT KHẨU CỐ ĐỊNH (TỪ CODE GỐC CỦA BẠN) ---
