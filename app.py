@@ -192,7 +192,7 @@ def main_app():
         st.session_state.logged_in = False
         st.rerun()
     st.sidebar.divider()
-    st.sidebar.caption("Phiên bản v2.3 (Hanoi Time)")
+    st.sidebar.caption("Phiên bản v2.4 (Fixed Timezone)")
 
     st.header(f"📋 Form Yêu cầu - {st.session_state.user}")
     
@@ -213,7 +213,6 @@ def main_app():
             if not item or not photo:
                 st.warning("Vui lòng nhập tên linh kiện và chụp ảnh!")
             else:
-                # Tạo mã REQ dựa trên giờ Hà Nội
                 req_id = f"REQ{now.strftime('%y%m%d%H%M%S')}"
                 try:
                     conn = get_db_connection()
@@ -251,7 +250,7 @@ def main_app():
                     """
                     
                     if send_mail(LEADER_EMAIL, mail_subject, email_html, photo.getvalue()):
-                        st.success(f"Đã gửi yêu cầu {req_id} thành công (Giờ Hà Nội)!")
+                        st.success(f"Đã gửi yêu cầu {req_id} thành công!")
                         st.balloons()
                         st.cache_data.clear()
                 except Exception as e:
@@ -273,8 +272,14 @@ def main_app():
 
         if rows:
             df = pd.DataFrame(rows, columns=['Mã', 'Ngày tạo', 'Linh kiện', 'SL', 'Trạng thái'])
-            # Chuyển đổi thời gian từ DB sang múi giờ Hà Nội để hiển thị chính xác
-            df['Ngày tạo'] = pd.to_datetime(df['Ngày tạo']).dt.tz_convert(local_tz).dt.strftime('%H:%M %d/%m/%Y')
+            # SỬA LỖI Ở ĐÂY: Localization trước khi Convert
+            # 1. Đảm bảo cột là datetime
+            df['Ngày tạo'] = pd.to_datetime(df['Ngày tạo'])
+            # 2. Xử lý múi giờ: Nếu chưa có múi giờ thì gắn UTC, sau đó chuyển sang local_tz
+            df['Ngày tạo'] = df['Ngày tạo'].apply(lambda x: x.tz_localize('UTC').tz_convert(local_tz) if x.tzinfo is None else x.tz_convert(local_tz))
+            # 3. Định dạng hiển thị
+            df['Ngày tạo'] = df['Ngày tạo'].dt.strftime('%H:%M %d/%m/%Y')
+            
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.info("Chưa có dữ liệu yêu cầu.")
