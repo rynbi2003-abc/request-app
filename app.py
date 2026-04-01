@@ -26,7 +26,7 @@ MAINTENANCE_EMAIL = "Mary.Nguyen@esquel.com"
 
 # Cấu hình Database Pooler (Cổng 6543)
 DB_CONFIG = {
-    "host": "aws-0-ap-southeast-1.pooler.supabase.com",
+    "host": "aws-1-ap-south-1.pooler.supabase.com",
     "database": "postgres",
     "user": "postgres.fucrufqdvsmkdevaguqy",
     "password": "y8JktKAHgnI5ycmf",
