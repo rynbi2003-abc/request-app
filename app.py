@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import smtplib
 import psycopg2
+import pytz
 from psycopg2 import extras
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -10,6 +11,13 @@ from email.mime.image import MIMEImage
 
 # --- 1. CẤU HÌNH HỆ THỐNG ---
 st.set_page_config(page_title="Hệ thống Yêu cầu Bảo trì v2.0", layout="wide")
+
+# Thiết lập múi giờ Hà Nội
+local_tz = pytz.timezone("Asia/Ho_Chi_Minh")
+
+def get_now():
+    """Lấy thời gian hiện tại theo múi giờ Hà Nội"""
+    return datetime.now(local_tz)
 
 # Link sau khi bạn Deploy lên Streamlit Cloud
 WEB_URL = "https://rynbi2003-abc-request-app-app-iimreh.streamlit.app/" 
@@ -55,7 +63,7 @@ def init_db():
         cur.execute("""
             CREATE TABLE IF NOT EXISTS maintenance_requests (
                 id TEXT PRIMARY KEY,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 line_name TEXT,
                 item_name TEXT,
                 quantity INTEGER,
@@ -121,7 +129,6 @@ def handle_url_actions():
             new_status = "Đã duyệt ✅"
             next_mail_to = MAINTENANCE_EMAIL
             finish_link = f"{WEB_URL}/?id={req_id}&action=complete"
-            # Đổi sang CẤP PHÁT sau khi Leader duyệt
             next_subject = f"[CẤP PHÁT] Yêu cầu cấp linh kiện - {req_id} - {line_name}"
             next_body = f"""
             <h3>Thông báo cấp phát linh kiện</h3>
@@ -138,7 +145,6 @@ def handle_url_actions():
         elif action == "complete":
             new_status = "Hoàn tất 🏁"
             next_mail_to = LEADER_EMAIL
-            # Đổi sang HOÀN TẤT sau khi Bảo trì xong
             next_subject = f"[HOÀN TẤT] Yêu cầu cấp linh kiện - {req_id} - {line_name}"
             next_body = f"""
             <h3>Thông báo xử lý hoàn tất</h3>
@@ -186,14 +192,16 @@ def main_app():
         st.session_state.logged_in = False
         st.rerun()
     st.sidebar.divider()
-    st.sidebar.caption("Phiên bản v2.2")
+    st.sidebar.caption("Phiên bản v2.3 (Hanoi Time)")
 
     st.header(f"📋 Form Yêu cầu - {st.session_state.user}")
+    
+    now = get_now()
     
     with st.form("request_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
         with c1:
-            st.text_input("Ngày/Date", value=datetime.now().strftime("%d/%m/%Y %H:%M"), disabled=True)
+            st.text_input("Ngày/Date", value=now.strftime("%d/%m/%Y %H:%M"), disabled=True)
             item = st.text_input("Tên linh kiện")
         with c2:
             qty = st.number_input("Số lượng", min_value=1, value=1)
@@ -205,13 +213,14 @@ def main_app():
             if not item or not photo:
                 st.warning("Vui lòng nhập tên linh kiện và chụp ảnh!")
             else:
-                req_id = f"REQ{datetime.now().strftime('%y%m%d%H%M%S')}"
+                # Tạo mã REQ dựa trên giờ Hà Nội
+                req_id = f"REQ{now.strftime('%y%m%d%H%M%S')}"
                 try:
                     conn = get_db_connection()
                     cur = conn.cursor()
                     cur.execute(
-                        "INSERT INTO maintenance_requests (id, line_name, item_name, quantity, note, status) VALUES (%s, %s, %s, %s, %s, %s)",
-                        (req_id, st.session_state.user, item, qty, note, "Đang chờ duyệt ⏳")
+                        "INSERT INTO maintenance_requests (id, line_name, item_name, quantity, note, status, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                        (req_id, st.session_state.user, item, qty, note, "Đang chờ duyệt ⏳", now)
                     )
                     conn.commit()
                     cur.close()
@@ -220,12 +229,12 @@ def main_app():
                     approve_link = f"{WEB_URL}/?id={req_id}&action=approve"
                     reject_link = f"{WEB_URL}/?id={req_id}&action=reject"
                     
-                    # Bước đầu tiên luôn là PHÊ DUYỆT gửi cho Leader
                     mail_subject = f"[PHÊ DUYỆT] Yêu cầu cấp linh kiện - {req_id} - {st.session_state.user}"
                     
                     email_html = f"""
                     <div style="font-family: Arial; border: 1px solid #ddd; padding: 20px;">
                         <h2 style="color:#0078D4;">YÊU CẦU PHÊ DUYỆT LINH KIỆN</h2>
+                        <p><b>Thời gian gửi:</b> {now.strftime('%H:%M %d/%m/%Y')}</p>
                         <p><b>Mã yêu cầu:</b> {req_id}</p>
                         <p><b>Từ Chuyền:</b> {st.session_state.user}</p>
                         <p><b>Linh kiện:</b> {item} (Số lượng: {qty})</p>
@@ -242,9 +251,8 @@ def main_app():
                     """
                     
                     if send_mail(LEADER_EMAIL, mail_subject, email_html, photo.getvalue()):
-                        st.success(f"Đã gửi yêu cầu {req_id} thành công!")
+                        st.success(f"Đã gửi yêu cầu {req_id} thành công (Giờ Hà Nội)!")
                         st.balloons()
-                        # Xóa cache để bảng lịch sử cập nhật ngay lập tức
                         st.cache_data.clear()
                 except Exception as e:
                     st.error(f"Lỗi database: {e}")
@@ -265,7 +273,8 @@ def main_app():
 
         if rows:
             df = pd.DataFrame(rows, columns=['Mã', 'Ngày tạo', 'Linh kiện', 'SL', 'Trạng thái'])
-            df['Ngày tạo'] = pd.to_datetime(df['Ngày tạo']).dt.strftime('%H:%M %d/%m/%Y')
+            # Chuyển đổi thời gian từ DB sang múi giờ Hà Nội để hiển thị chính xác
+            df['Ngày tạo'] = pd.to_datetime(df['Ngày tạo']).dt.tz_convert(local_tz).dt.strftime('%H:%M %d/%m/%Y')
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.info("Chưa có dữ liệu yêu cầu.")
